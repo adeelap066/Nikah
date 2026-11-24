@@ -8,16 +8,18 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Handle Accept / Decline actions (Works for both Received & Sent for testing)
 if (isset($_GET['action']) && isset($_GET['interest_id'])) {
     $interest_id = (int)$_GET['interest_id'];
     $status = ($_GET['action'] == 'accept') ? 'Accepted' : 'Declined';
     
-    $update = $pdo->prepare("UPDATE interests SET status = ? WHERE id = ? AND receiver_id = ?");
-    $update->execute([$status, $interest_id, $user_id]);
+    $update = $pdo->prepare("UPDATE interests SET status = ? WHERE id = ? AND (receiver_id = ? OR sender_id = ?)");
+    $update->execute([$status, $interest_id, $user_id, $user_id]);
     header("Location: dashboard.php");
     exit();
 }
 
+// Fetch Received Proposals
 $recvStmt = $pdo->prepare("
     SELECT i.id AS interest_id, i.status, u.* 
     FROM interests i 
@@ -27,8 +29,9 @@ $recvStmt = $pdo->prepare("
 $recvStmt->execute([$user_id]);
 $received = $recvStmt->fetchAll();
 
+// Fetch Sent Proposals
 $sentStmt = $pdo->prepare("
-    SELECT i.status, u.* 
+    SELECT i.id AS interest_id, i.status, u.* 
     FROM interests i 
     JOIN users u ON i.receiver_id = u.id 
     WHERE i.sender_id = ?
@@ -92,10 +95,14 @@ $sent = $sentStmt->fetchAll();
                     <h3><?= htmlspecialchars($row['full_name']) ?> (<?= $row['age'] ?> yrs)</h3>
                     <p><strong>City:</strong> <?= htmlspecialchars($row['city']) ?></p>
                     <p><strong>Profession:</strong> <?= htmlspecialchars($row['profession']) ?></p>
+                    
                     <?php if ($row['status'] == 'Accepted'): ?>
                         <p style="margin-top:10px; color:#27ae60;"><strong>Wali Contact:</strong> <?= htmlspecialchars($row['wali_contact']) ?></p>
                     <?php else: ?>
                         <p style="margin-top:10px; font-style:italic;">Wali contact will unlock once accepted.</p>
+                        <br>
+                        <a href="dashboard.php?action=accept&interest_id=<?= $row['interest_id'] ?>" class="btn btn-success">Accept</a>
+                        <a href="dashboard.php?action=decline&interest_id=<?= $row['interest_id'] ?>" class="btn btn-danger">Decline</a>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -106,4 +113,4 @@ $sent = $sentStmt->fetchAll();
 </div>
 
 </body>
-</html> 
+</html>
